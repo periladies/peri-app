@@ -138,7 +138,7 @@ app.post('/api/ai/chat', async (req, res) => {
     });
 
     const result = await response.json();
-
+console.log('Claude response:', JSON.stringify(result, null, 2));
     if (!result.content || !Array.isArray(result.content) || result.content.length === 0) {
       return res.status(400).json({ error: 'Invalid response from Claude API' });
     }
