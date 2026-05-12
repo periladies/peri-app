@@ -123,39 +123,6 @@ app.post('/api/ai/chat', async (req, res) => {
   try {
     const { message, userId } = req.body;
 
-    // Get user's symptom history for context
-    const { data: symptoms } = await supabase
-      .from('symptom_logs')
-      .select('*')
-      .eq('user_id', userId)
-      .order('log_date', { ascending: false })
-      .limit(30);
-
-    // Get chat history for context
-    const { data: chatHistory } = await supabase
-      .from('chat_messages')
-      .select('*')
-      .eq('user_id', userId)
-      .order('created_at', { ascending: true })
-      .limit(10);
-
-    // Build system prompt with user context
-    const systemPrompt = `You are Peri, a compassionate perimenopause coach.
-    
-User's recent symptoms: ${symptoms?.map(s => s.symptoms).flat().join(', ') || 'None logged yet'}
-Average energy this month: ${symptoms ? Math.round(symptoms.reduce((a, b) => a + b.energy, 0) / symptoms.length) : 'N/A'}/10
-Average sleep: ${symptoms ? Math.round(symptoms.reduce((a, b) => a + b.sleep_quality, 0) / symptoms.length) : 'N/A'}/10
-
-Guidelines:
-- Validate her feelings
-- Give evidence-based advice
-- Suggest lifestyle changes
-- Recommend doctor if needed
-- Keep it warm and personal
-- Reference her data when relevant
-- Maximum 250 words`;
-
-    // Call Claude API
     const response = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       headers: {
@@ -166,16 +133,30 @@ Guidelines:
       body: JSON.stringify({
         model: 'claude-opus-4-6',
         max_tokens: 1024,
-        system: systemPrompt,
         messages: [
-          ...chatHistory.map(msg => ({
-            role: msg.role,
-            content: msg.content
-          })),
           { role: 'user', content: message }
         ]
       })
     });
+
+    const result = await response.json();
+
+    if (!result.content || !Array.isArray(result.content) || result.content.length === 0) {
+      return res.status(400).json({ error: 'Invalid response from Claude API' });
+    }
+
+    const aiResponse = result.content[0].text;
+
+    await supabase.from('chat_messages').insert([
+      { user_id: userId, role: 'user', content: message },
+      { user_id: userId, role: 'assistant', content: aiResponse }
+    ]);
+
+    res.json({ response: aiResponse });
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
 
     const result = await response.json();
 
