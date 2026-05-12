@@ -75,6 +75,10 @@ app.get('/api/symptoms/:userId', async (req, res) => {
 });
 
 // Save chat message
+app.options('/api/chat/message', (req, res) => {
+  res.sendStatus(200)
+})
+
 app.post('/api/chat/message', async (req, res) => {
   try {
     const { userId, role, content } = req.body;
