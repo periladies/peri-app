@@ -178,7 +178,12 @@ Guidelines:
     });
 
     const result = await response.json();
-    const aiResponse = result.content[0].text;
+
+if (!result.content || !result.content[0]) {
+  throw new Error('Invalid response from Claude API');
+}
+
+const aiResponse = result.content[0].text;
 
     // Save both user message and AI response
     await supabase.from('chat_messages').insert([
