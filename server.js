@@ -77,27 +77,70 @@ app.get('/api/symptoms/:userId', async (req, res) => {
 });
 
 // Save chat message
-app.options('/api/chat/message', (req, res) => {
-  res.sendStatus(200)
-})
+const express = require('express');
+const { Anthropic } = require('@anthropic-ai/sdk');
+const cors = require('cors');
+require('dotenv').config();
 
-app.post('/api/chat/message', async (req, res) => {
+const app = express();
+app.use(cors());
+app.use(express.json());
+
+const anthropic = new Anthropic({
+  apiKey: process.env.CLAUDE_API_KEY
+});
+
+app.post('/api/ai/chat', async (req, res) => {
   try {
-    const { userId, role, content } = req.body;
+    const { userId, message, context } = req.body;
 
-    const { data, error } = await supabase
-      .from('chat_messages')
-      .insert([{
-        user_id: userId,
-        role,
-        content
-      }]);
+    if (!userId || !message) {
+      return res.status(400).json({ error: 'Missing userId or message' });
+    }
 
-    if (error) throw error;
-    res.json({ success: true, data });
-  } catch (err) {
-    res.status(400).json({ error: err.message });
+    const systemPrompt = `You are Peri, a warm, empathetic AI coach specializing in perimenopause wellness. Your role is to:
+
+1. Listen with compassion and validate the user's experience
+2. Provide practical, evidence-based advice tailored to perimenopause symptoms
+3. Ask clarifying questions when helpful
+4. Be conversational and human — speak like a supportive friend, not a medical textbook
+5. Keep responses concise but thorough (2-3 paragraphs max)
+6. Avoid markdown formatting, bullet points, and technical language
+7. Focus on actionable wellness strategies they can implement today
+
+${context ? `The user's recent symptom history: ${context}` : ''}
+
+Always respond warmly, never dismiss concerns, and remind them to consult a healthcare provider for medical concerns.`;
+
+    const response = await anthropic.messages.create({
+      model: 'claude-opus-4-6',
+      max_tokens: 800,
+      system: systemPrompt,
+      messages: [
+        {
+          role: 'user',
+          content: message
+        }
+      ]
+    });
+
+    const aiResponse = response.content[0].type === 'text' ? response.content[0].text : 'I encountered an error processing your question.';
+
+    res.json({
+      response: aiResponse,
+      userId: userId
+    });
+  } catch (error) {
+    console.error('Claude API error:', error);
+    res.status(500).json({
+      error: error.message || 'Failed to get response from Claude'
+    });
   }
+});
+
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, '0.0.0.0', () => {
+  console.log(`Peri backend running on port ${PORT}`);
 });
 
 // Get chat history
