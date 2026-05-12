@@ -133,9 +133,7 @@ app.post('/api/ai/chat', async (req, res) => {
       body: JSON.stringify({
         model: 'claude-opus-4-6',
         max_tokens: 1024,
-        messages: [
-          { role: 'user', content: message }
-        ]
+        messages: [{ role: 'user', content: message }]
       })
     });
 
@@ -147,26 +145,6 @@ app.post('/api/ai/chat', async (req, res) => {
 
     const aiResponse = result.content[0].text;
 
-    await supabase.from('chat_messages').insert([
-      { user_id: userId, role: 'user', content: message },
-      { user_id: userId, role: 'assistant', content: aiResponse }
-    ]);
-
-    res.json({ response: aiResponse });
-  } catch (err) {
-    res.status(400).json({ error: err.message });
-  }
-});
-
-    const result = await response.json();
-
-if (!result.content || !result.content[0]) {
-  throw new Error('Invalid response from Claude API');
-}
-
-const aiResponse = result.content[0].text;
-
-    // Save both user message and AI response
     await supabase.from('chat_messages').insert([
       { user_id: userId, role: 'user', content: message },
       { user_id: userId, role: 'assistant', content: aiResponse }
